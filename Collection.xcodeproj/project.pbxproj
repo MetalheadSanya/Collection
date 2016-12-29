@@ -8,8 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		0FC5123C1E144DE800D04008 /* Collection.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0FC512321E144DE800D04008 /* Collection.framework */; };
-		0FC512411E144DE800D04008 /* CollectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC512401E144DE800D04008 /* CollectionTests.swift */; };
+		0FC512411E144DE800D04008 /* LinkedListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC512401E144DE800D04008 /* LinkedListTests.swift */; };
 		0FC512431E144DE800D04008 /* Collection.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FC512351E144DE800D04008 /* Collection.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0FC5124D1E1451CF00D04008 /* LinkedList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC5124C1E1451CF00D04008 /* LinkedList.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -27,8 +28,9 @@
 		0FC512351E144DE800D04008 /* Collection.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Collection.h; sourceTree = "<group>"; };
 		0FC512361E144DE800D04008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0FC5123B1E144DE800D04008 /* CollectionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CollectionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		0FC512401E144DE800D04008 /* CollectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionTests.swift; sourceTree = "<group>"; };
+		0FC512401E144DE800D04008 /* LinkedListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkedListTests.swift; sourceTree = "<group>"; };
 		0FC512421E144DE800D04008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		0FC5124C1E1451CF00D04008 /* LinkedList.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LinkedList.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +75,7 @@
 			children = (
 				0FC512351E144DE800D04008 /* Collection.h */,
 				0FC512361E144DE800D04008 /* Info.plist */,
+				0FC5124C1E1451CF00D04008 /* LinkedList.swift */,
 			);
 			path = Collection;
 			sourceTree = "<group>";
@@ -80,7 +83,7 @@
 		0FC5123F1E144DE800D04008 /* CollectionTests */ = {
 			isa = PBXGroup;
 			children = (
-				0FC512401E144DE800D04008 /* CollectionTests.swift */,
+				0FC512401E144DE800D04008 /* LinkedListTests.swift */,
 				0FC512421E144DE800D04008 /* Info.plist */,
 			);
 			path = CollectionTests;
@@ -148,6 +151,7 @@
 				TargetAttributes = {
 					0FC512311E144DE800D04008 = {
 						CreatedOnToolsVersion = 8.2.1;
+						LastSwiftMigration = 0820;
 						ProvisioningStyle = Automatic;
 					};
 					0FC5123A1E144DE800D04008 = {
@@ -196,6 +200,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0FC5124D1E1451CF00D04008 /* LinkedList.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -203,7 +208,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0FC512411E144DE800D04008 /* CollectionTests.swift in Sources */,
+				0FC512411E144DE800D04008 /* LinkedListTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -317,6 +322,7 @@
 		0FC512471E144DE800D04008 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				DEFINES_MODULE = YES;
@@ -330,6 +336,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = alexander.zalutskiy.Collection;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 3.0;
 			};
 			name = Debug;
@@ -337,6 +344,7 @@
 		0FC512481E144DE800D04008 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				DEFINES_MODULE = YES;
@@ -357,6 +365,7 @@
 		0FC5124A1E144DE800D04008 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = CollectionTests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
@@ -369,6 +378,7 @@
 		0FC5124B1E144DE800D04008 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = CollectionTests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
