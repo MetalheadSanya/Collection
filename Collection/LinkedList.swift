@@ -52,19 +52,19 @@ open class LinkedList<Element>: Swift.Collection {
 
 	}
 
-	public convenience init<Source:Sequence>(collection: Source)
-		where Source.Iterator.Element == Element {
+	public convenience init<Source:Sequence>(
+		collection: Source) where Source.Iterator.Element == Element {
 		self.init()
 		_ = append(contentsOf: collection)
 	}
 
-	public func append<Source:Sequence>(contentsOf: Source)
-		where Source.Iterator.Element == Element {
+	public func append<Source:Sequence>(
+		contentsOf: Source) where Source.Iterator.Element == Element {
 		append(contentsOf: contentsOf, at: count)
 	}
 
-	public func append<Source:Sequence>(contentsOf: Source, at index: Index)
-		where Source.Iterator.Element == Element {
+	public func append<Source:Sequence>(contentsOf: Source,
+	                                    at index: Index) where Source.Iterator.Element == Element {
 		checkPositionIndex(index)
 
 		let succ: Node<Element>?
@@ -189,7 +189,8 @@ open class LinkedList<Element>: Swift.Collection {
 
 }
 
-public extension LinkedList where Element: Swift.Equatable {
+public extension LinkedList
+	where Element: Swift.Equatable {
 
 	func index(of element: LinkedList.Iterator.Element) -> LinkedList.Index? {
 		var node = firstNode
