@@ -20,32 +20,122 @@ class Node<Element> {
 
 }
 
-open class LinkedListIterator<Element>: Swift.IteratorProtocol {
+public struct LinkedListIndex<Element> {
 
-	private var node: Node<Element>?
+	internal let collection: LinkedList<Element>
+	internal let modCount: UInt
+	internal let node: Node<Element>?
 
-	init(node: Node<Element>?) {
+	internal init(collection: LinkedList<Element>, modCount: UInt,
+	              node: Node<Element>?) {
+		self.collection = collection
+		self.modCount = modCount
 		self.node = node
 	}
 
-	public func next() -> Element? {
-		let item = node?.item
-		node = node?.next
-		return item
+	internal var isValid: Bool {
+		return modCount == collection.modCount
 	}
-
 }
 
-open class LinkedList<Element>: Swift.MutableCollection,
-	Swift.ExpressibleByArrayLiteral, Swift.RangeReplaceableCollection/*,
-	Swift.BidirectionalCollection*/ {
+extension LinkedListIndex: Equatable {
+}
 
-	public typealias Index = Int
+public func ==<Element>(lhs: LinkedListIndex<Element>,
+                        rhs: LinkedListIndex<Element>) -> Bool {
 
-	public typealias Iterator = LinkedListIterator<Element>
+	precondition(lhs.collection === rhs.collection,
+	             "Indexes of the different collections",
+	             file: #file,
+	             line: #line)
+	precondition(lhs.isValid,
+	             "The collection has changed",
+	             file: #file,
+	             line: #line)
+	precondition(rhs.isValid,
+	             "The collection has changed",
+	             file: #file,
+	             line: #line)
+	return lhs.node === rhs.node || (lhs.node == nil && rhs.node == nil)
+}
+
+extension LinkedListIndex: Comparable {
+}
+
+public func ><Element>(lhs: LinkedListIndex<Element>,
+                       rhs: LinkedListIndex<Element>) -> Bool {
+
+	precondition(lhs.collection === rhs.collection,
+	             "Indexes of the different collections",
+	             file: #file,
+	             line: #line)
+	precondition(lhs.isValid,
+	             "The collection has changed",
+	             file: #file,
+	             line: #line)
+	precondition(rhs.isValid,
+	             "The collection has changed",
+	             file: #file,
+	             line: #line)
+	guard lhs != rhs else { return false }
+	guard rhs != rhs.collection.endIndex else { return false }
+	guard lhs != lhs.collection.endIndex else { return true }
+
+	let collection = lhs.collection
+
+	var rhs = rhs
+	while rhs != collection.endIndex {
+		collection.formIndex(after: &rhs)
+		if rhs == lhs { return true }
+	}
+	return false
+}
+
+public func <<Element>(lhs: LinkedListIndex<Element>,
+                       rhs: LinkedListIndex<Element>) -> Bool {
+
+	precondition(lhs.collection === rhs.collection,
+	             "Indexes of the different collections",
+	             file: #file,
+	             line: #line)
+	precondition(lhs.isValid,
+	             "The collection has changed",
+	             file: #file,
+	             line: #line)
+	precondition(rhs.isValid,
+	             "The collection has changed",
+	             file: #file,
+	             line: #line)
+	guard lhs != rhs else { return false }
+	guard rhs != rhs.collection.endIndex else { return true }
+	guard lhs != lhs.collection.endIndex else { return false }
+
+	let collection = lhs.collection
+
+	var lhs = lhs
+	while lhs != collection.endIndex {
+		collection.formIndex(after: &lhs)
+		if rhs == lhs { return true }
+	}
+	return false
+}
+
+open class LinkedList<Element>:
+	Swift.Collection,
+	Swift.MutableCollection,
+	Swift.BidirectionalCollection,
+	Swift.ExpressibleByArrayLiteral,
+	Swift.RangeReplaceableCollection {
+
+	public typealias Index = LinkedListIndex<Element>
+
+	public typealias IndexDistance = Int
+
+	public typealias SubSequence = LinkedList<Element>
 
 	/// The number of elements in the list.
-	public private(set) var count: Int = 0
+	public // @testable
+	private(set) var count: Int = 0
 
 	/// Pointer to first node.
 	internal var firstNode: Node<Element>?
@@ -53,7 +143,8 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	/// Pointer to last node.
 	internal var lastNode: Node<Element>?
 
-	internal var modCount: Int = 0
+	internal // @testable
+	var modCount: UInt = 0
 
 	/// Creates a new, empty list
 	///
@@ -67,8 +158,372 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///     emptyList = []
 	///     print(emptyList.isEmpty)
 	///     // Prints "true"
-	required public init() {
+	required public // @testable
+	init() {
 	}
+
+
+	// MARK: - IndexableBase
+
+
+	/// The list's "past the end" position---that is, the position one greater
+	/// than the last valid subscript argument.
+	///
+	/// When you need a range that includes the last element of a list, use
+	/// the half-open range operator (`..<`) with `endIndex`. The `..<` operator
+	/// creates a range that doesn't include the upper bound, so it's always
+	/// safe to use with `endIndex`. For example:
+	///
+	///     let numbers: LinkedList<Int> = [10, 20, 30, 40, 50]
+	///     if let index = numbers.index(of: 30) {
+	///         print(numbers[index ..< numbers.endIndex])
+	///     }
+	///     // Prints "[30, 40, 50]"
+	///
+	/// If the list is empty, `endIndex` is equal to `startIndex`.
+	public var endIndex: Index {
+		return index(for: nil)
+	}
+
+	/// The position of the first element in a nonempty list.
+	///
+	/// If the collection is empty, `startIndex` is equal to `endIndex`.
+	public var startIndex: Index {
+		return index(for: firstNode)
+	}
+
+	/// Returns the position immediately after the given index.
+	///
+	/// - Parameter i: A valid index of the list. `i` must be less than
+	///   `endIndex`.
+	/// - Returns: The index value immediately after `i`.
+	public // @testable
+	func index(after i: Index) -> Index {
+
+		precondition(validateIndex(i),
+		             "The index of the other collection or the collection has changes",
+		             file: #file,
+		             line: #line)
+		precondition(i != endIndex,
+		             "The index equal to endIndex",
+		             file: #file,
+		             line: #line)
+		return index(for: i.node!.next)
+	}
+
+	/// Replaces the given index with its successor.
+	///
+	/// - Parameter i: A valid index of the list. `i` must be less than
+	///    `endIndex`.
+	public // @testable
+	func formIndex(after i: inout Index) {
+
+		i = index(after: i)
+	}
+
+	/// Accesses the element at the specified position.
+	///
+	/// For example, you can replace an element of an list by using its
+	/// subscript.
+	///
+	///     var streets: LinkedList<String> = ["Adams", "Bryant", "Channing"]
+	///     streets[1] = "Butler"
+	///     print(streets[1])
+	///     // Prints "Butler"
+	///
+	/// You can subscript a list with any valid index other than the list's end
+	/// index. The end index refers to the position one past the last element of
+	/// a list, so it doesn't correspond with an element.
+	///
+	/// - Parameter position: The position of the element to access. `position`
+	///   must be a valid index of the collection that is not equal to the
+	///   `endIndex` property.
+	public // @testable
+	subscript(position: Index) -> Element {
+		get {
+			precondition(validateIndex(position),
+			             "The index of the other collection or the collection has changes",
+			             file: #file,
+			             line: #line)
+			precondition(position != endIndex,
+			             "The index equal to endIndex",
+			             file: #file,
+			             line: #line)
+			return position.node!.item
+		}
+		set(newValue) {
+			precondition(validateIndex(position),
+			             "The index of the other collection or the collection has changes",
+			             file: #file,
+			             line: #line)
+			precondition(position != endIndex,
+			             "The index equal to endIndex",
+			             file: #file,
+			             line: #line)
+			position.node!.item = newValue
+		}
+	}
+
+	// TODO: docs
+
+	public // @testable (get only)
+	subscript(bounds: Range<Index>) -> SubSequence {
+		get {
+			precondition(validateIndex(bounds.lowerBound),
+			             "The lower index of the other collection or the collection has changes",
+			             file: #file,
+			             line: #line)
+			precondition(validateIndex(bounds.upperBound),
+			             "The upper index of the other collection or the collection has changes",
+			             file: #file,
+			             line: #line)
+
+			let list = LinkedList<Element>()
+			var lowerBounds = bounds.lowerBound
+			while lowerBounds.node !== bounds.upperBound.node {
+				if let node = lowerBounds.node {
+					list.append(node.item)
+				}
+				formIndex(after: &lowerBounds)
+			}
+			return list
+		}
+		// TODO: Implementation
+		// TODO: tests
+		set(newValue) {
+
+		}
+	}
+
+	// MARK: - BidirectionalIndexable
+
+	/// Returns the position immediately before the given index.
+	///
+	/// - Parameter i: A valid index of the collection. `i` must be greater than
+	///   `startIndex`.
+	/// - Returns: The index value immediately before `i`.
+	public // @testable
+	func index(before i: Index) -> Index {
+
+		precondition(validateIndex(i),
+		             "The index of the other collection or the collection has changes",
+		             file: #file,
+		             line: #line)
+		guard i.node != nil else { return index(for: lastNode) }
+		precondition(i != startIndex,
+		             "The index equal to startIndex",
+		             file: #file,
+		             line: #line)
+		return index(for: i.node!.previous)
+	}
+
+	// Replaces the given index with its predecessor.
+	///
+	/// - Parameter i: A valid index of the collection. `i` must be greater than
+	///   `startIndex`.
+	public // @testable
+	func formIndex(before i: inout Index) {
+
+		i = index(before: i)
+	}
+
+	// MARK: - Indexable
+
+	/// Returns the distance between two indices.
+	///
+	/// `start` index must be less than or equal to `end`.
+	///
+	/// - Parameters:
+	///   - start: A valid index of the collection.
+	///   - end: Another valid index of the collection. If `end` is equal to
+	///     `start`, the result is zero.
+	/// - Returns: The distance between `start` and `end`.
+	///
+	/// - Complexity: O(*n*), where *n* is the resulting distance.
+	public // @testable
+	func distance(from start: Index, to end: Index) -> IndexDistance {
+
+		precondition(validateIndex(start),
+		             "The index of the other collection or the collection has changes",
+		             file: #file,
+		             line: #line)
+		precondition(validateIndex(end),
+		             "The index of the other collection or the collection has changes",
+		             file: #file,
+		             line: #line)
+
+		guard start != end else { return 0 }
+
+		var distance = 0
+		var start = start
+
+		while start != end {
+			formIndex(after: &start)
+			distance += 1
+		}
+		return distance
+	}
+
+	/// Returns an index that is the specified distance from the given index.
+	///
+	/// The following example obtains an index advanced four positions from a
+	/// string's starting index and then prints the character at that position.
+	///
+	///     let s = "Swift"
+	///     let i = s.index(s.startIndex, offsetBy: 4)
+	///     print(s[i])
+	///     // Prints "t"
+	///
+	/// The value passed as `n` must not offset `i` beyond the `endIndex` or
+	/// before the `startIndex` of this collection.
+	///
+	/// - Parameters:
+	///   - i: A valid index of the collection.
+	///   - n: The distance to offset `i`. `n` must not be negative unless the
+	///     collection conforms to the `BidirectionalCollection` protocol.
+	/// - Returns: An index offset by `n` from the index `i`. If `n` is positive,
+	///   this is the same value as the result of `n` calls to `index(after:)`.
+	///   If `n` is negative, this is the same value as the result of `-n` calls
+	///   to `index(before:)`.
+	///
+	/// - SeeAlso: `index(_:offsetBy:limitedBy:)`, `formIndex(_:offsetBy:)`
+	/// - Complexity: O(*n*), where *n* is the absolute
+	///   value of `n`.
+	public // @testable
+	func index(_ i: Index, offsetBy n: IndexDistance) -> Index {
+
+		precondition(validateIndex(i),
+		             "The index of the other collection or the collection has changes",
+		             file: #file,
+		             line: #line)
+
+		var i = i
+		let counter = abs(n)
+		for _ in 0 ..< counter {
+			if n > 0 {
+				formIndex(after: &i)
+			}
+			else {
+				formIndex(before: &i)
+			}
+		}
+		return i
+	}
+
+
+	/// Offsets the given index by the specified distance.
+	///
+	/// The value passed as `n` must not offset `i` beyond the `endIndex` or
+	/// before the `startIndex` of this collection.
+	///
+	/// - Parameters:
+	///   - i: A valid index of the collection.
+	///   - n: The distance to offset `i`.
+	///
+	/// - SeeAlso: `index(_:offsetBy:)`, `formIndex(_:offsetBy:limitedBy:)`
+	/// - Complexity: O(*n*), where *n* is the absolute value of `n`.
+	public // @testable
+	func formIndex(_ i: inout Index, offsetBy n: IndexDistance) {
+
+		i = index(i, offsetBy: n)
+	}
+
+	/// Returns an index that is the specified distance from the given index,
+	/// unless that distance is beyond a given limiting index.
+	///
+	/// The following example obtains an index advanced four positions from a
+	/// string's starting index and then prints the character at that position.
+	/// The operation doesn't require going beyond the limiting `s.endIndex`
+	/// value, so it succeeds.
+	///
+	///     let s = "Swift"
+	///     if let i = s.index(s.startIndex, offsetBy: 4, limitedBy: s.endIndex) {
+	///         print(s[i])
+	///     }
+	///     // Prints "t"
+	///
+	/// The next example attempts to retrieve an index six positions from
+	/// `s.startIndex` but fails, because that distance is beyond the index
+	/// passed as `limit`.
+	///
+	///     let j = s.index(s.startIndex, offsetBy: 6, limitedBy: s.endIndex)
+	///     print(j)
+	///     // Prints "nil"
+	///
+	/// The value passed as `n` must not offset `i` beyond the `endIndex` or
+	/// before the `startIndex` of this collection, unless the index passed as
+	/// `limit` prevents offsetting beyond those bounds.
+	///
+	/// - Parameters:
+	///   - i: A valid index of the collection.
+	///   - n: The distance to offset `i`.
+	///   - limit: A valid index of the collection to use as a limit. If `n > 0`,
+	///     a limit that is less than `i` has no effect. Likewise, if `n < 0`, a
+	///     limit that is greater than `i` has no effect.
+	/// - Returns: An index offset by `n` from the index `i`, unless that index
+	///   would be beyond `limit` in the direction of movement. In that case,
+	///   the method returns `nil`.
+	///
+	/// - SeeAlso: `index(_:offsetBy:)`, `formIndex(_:offsetBy:limitedBy:)`
+	/// - Complexity: O(*n*), where *n* is the absolute value of `n`.
+	public // @testable
+	func index(_ i: Index,
+	           offsetBy n: IndexDistance,
+	           limitedBy limit: Index) -> Index? {
+
+		precondition(validateIndex(i),
+		             "The index of the other collection or the collection has changes",
+		             file: #file,
+		             line: #line)
+		precondition(validateIndex(limit),
+		             "The index of the other collection or the collection has changes",
+		             file: #file,
+		             line: #line)
+
+		guard i != limit else { return nil }
+		guard n != 0 else { return i }
+
+		var i = i
+		let counter = abs(n)
+		for _ in 0 ..< counter {
+			if n > 0 {
+				formIndex(after: &i)
+			}
+			else {
+				formIndex(before: &i)
+			}
+			guard i != limit else { return nil }
+		}
+		return i
+	}
+
+	/// Offsets the given index by the specified distance, or so that it equals
+	/// the given limiting index.
+	///
+	/// The value passed as `n` must not offset `i` beyond the `endIndex` or
+	/// before the `startIndex` of this collection, unless the index passed as
+	/// `limit` prevents offsetting beyond those bounds.
+	///
+	/// - Parameters:
+	///   - i: A valid index of the collection.
+	///   - n: The distance to offset `i`. `n` must not be negative unless the
+	///     collection conforms to the `BidirectionalCollection` protocol.
+	/// - Returns: `true` if `i` has been offset by exactly `n` steps without
+	///   going beyond `limit`; otherwise, `false`. When the return value is
+	///   `false`, the value of `i` is equal to `limit`.
+	///
+	/// - SeeAlso: `index(_:offsetBy:)`, `formIndex(_:offsetBy:limitedBy:)`
+	/// - Complexity: O(*n*), where *n* is the absolute value of `n`.
+	public // @testable
+	func formIndex(_ i: inout Index,
+	               offsetBy n: IndexDistance,
+	               limitedBy limit: Index) -> Bool {
+
+		i = index(i, offsetBy: n, limitedBy: limit) ?? limit
+		return i != limit
+	}
+
+	// MARK: - Initializers
 
 	/// Creates an list containing the elements of a sequence.
 	///
@@ -104,8 +559,10 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///     // Prints "LinkedList(["Gold", "Cerise", "Magenta", "Vermillion"])"
 	///
 	/// - Parameter elements: The sequence of elements to turn into an list.
-	required public convenience init<S:Sequence>(_ elements: S)
-		where S.Iterator.Element == Element {
+	required public // @testable
+	convenience init<S:Sequence>(_ elements: S)
+		where
+		S.Iterator.Element == Element {
 		self.init()
 		append(contentsOf: elements)
 	}
@@ -124,7 +581,8 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///           ["cocoa beans", "sugar", "cocoa butter", "salt"]
 	///
 	/// - Parameter elements: A variadic list of elements of the new list.
-	required public convenience init(arrayLiteral elements: Element...) {
+	required public // @testable
+	convenience init(arrayLiteral elements: Element...) {
 		self.init(elements)
 	}
 
@@ -142,8 +600,9 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///   - repeatedValue: The element to repeat.
 	///   - count: The number of times to repeat the value passed in the
 	///     `repeating` parameter. `count` must be zero or greater.
-	required public convenience init(repeating repeatedValue: Iterator.Element,
-	                                 count: Int) {
+	required public // @testable
+	convenience init(repeating repeatedValue: Element,
+	                 count: Int) {
 		self.init((0 ..< count).map { _ in repeatedValue })
 	}
 
@@ -160,10 +619,13 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	/// - Parameter newElements: The elements to append to the list.
 	///
 	/// - Complexity: O(*n*), where *n* is the length of the `newElements`
-	/// sequence.
-	public func append<S:Sequence>(contentsOf newElements: S)
-		where S.Iterator.Element == Element {
-		insert(contentsOf: newElements, at: count)
+	///   sequence.
+	public // @testable
+	func append<S:Sequence>(contentsOf newElements: S)
+		where
+		S.Iterator.Element == Element {
+
+		insert(contentsOf: newElements, at: endIndex)
 	}
 
 	/// Inserts the elements of a sequence into the list at the specified
@@ -194,19 +656,23 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///   `newElements`.
 	public func insert<S:Sequence>(contentsOf newElements: S,
 	                               at i: Index)
-		where S.Iterator.Element == Element {
+		where
+		S.Iterator.Element == Element {
 
-		checkPositionIndex(i)
+		precondition(validateIndex(i),
+		             "The index of the other collection or the collection has changes",
+		             file: #file,
+		             line: #line)
 
 		let succ: Node<Element>?
 		var pred: Node<Element>?
 
-		if i == count {
+		if i == endIndex {
 			succ = nil
 			pred = lastNode
 		}
 		else {
-			succ = node(at: i)
+			succ = i.node
 			pred = succ?.previous
 		}
 
@@ -219,9 +685,7 @@ open class LinkedList<Element>: Swift.MutableCollection,
 			if pred == nil {
 				firstNode = newNode
 			}
-			else {
-				pred?.next = newNode
-			}
+			pred?.next = newNode
 			pred = newNode
 		}
 
@@ -254,7 +718,9 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	/// - Parameter newElement: The element to append to the list.
 	///
 	/// - Complexity: O(1).
-	public func append(_ newElement: Element) {
+	public // @testable
+	func append(_ newElement: Element) {
+
 		linkLast(newElement)
 	}
 
@@ -267,7 +733,8 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///         print(firstNumber)
 	///     }
 	///     // Prints "10"
-	public var first: Element? {
+	public // @testable
+	var first: Element? {
 		return firstNode?.item
 	}
 
@@ -280,114 +747,10 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///         print(lastNumber)
 	///     }
 	///     // Prints "50"
-	public var last: Element? {
+	public // @testable
+	var last: Element? {
 		return lastNode?.item
 	}
-
-	/// The position of the first element in a nonempty list.
-	///
-	/// If the collection is empty, `startIndex` is equal to `endIndex`.
-	public var startIndex: Index {
-		return count == 0 ? endIndex : 0
-	}
-
-	/// The list's "past the end" position---that is, the position one greater
-	/// than the last valid subscript argument.
-	///
-	/// When you need a range that includes the last element of a list, use
-	/// the half-open range operator (`..<`) with `endIndex`. The `..<` operator
-	/// creates a range that doesn't include the upper bound, so it's always
-	/// safe to use with `endIndex`. For example:
-	///
-	///     let numbers: LinkedList<Int> = [10, 20, 30, 40, 50]
-	///     if let index = numbers.index(of: 30) {
-	///         print(numbers[index ..< numbers.endIndex])
-	///     }
-	///     // Prints "[30, 40, 50]"
-	///
-	/// If the list is empty, `endIndex` is equal to `startIndex`.
-	public var endIndex: Index {
-		return count
-	}
-
-	/// Returns the position immediately after the given index.
-	///
-	/// - Parameter i: A valid index of the list. `i` must be less than
-	///   `endIndex`.
-	/// - Returns: The index value immediately after `i`.
-	public func index(after i: Index) -> Index {
-		checkPositionIndex(i + 1)
-		return i + 1
-	}
-
-	/// Returns the position immediately before the given index.
-	///
-	/// - Parameter i: A valid index of the collection. `i` must be greater than
-	///   `startIndex`.
-	/// - Returns: The index value immediately before `i`.
-	public func index(before i: Index) -> Index {
-		checkPositionIndex(i - 1)
-		return i - 1
-	}
-
-	/// Replaces the given index with its successor.
-	///
-	/// - Parameter i: A valid index of the list. `i` must be less than
-	///    `endIndex`.
-	public func formIndex(after i: inout Index) {
-		i = index(after: i)
-	}
-
-	/// Replaces the given index with its predecessor.
-	///
-	/// - Parameter i: A valid index of the collection. `i` must be greater than
-	///   `startIndex`.
-	public func formIndex(before i: inout Index) {
-		i = index(before: i)
-	}
-
-
-	/// Returns an iterator over the elements of the list.
-	public func makeIterator() -> Iterator {
-		return LinkedListIterator(node: firstNode)
-	}
-
-	/// Accesses the element at the specified position.
-	///
-	/// For example, you can replace an element of an list by using its
-	/// subscript.
-	///
-	///     var streets: LinkedList<String> = ["Adams", "Bryant", "Channing"]
-	///     streets[1] = "Butler"
-	///     print(streets[1])
-	///     // Prints "Butler"
-	///
-	/// You can subscript a list with any valid index other than the list's end
-	/// index. The end index refers to the position one past the last element of
-	/// a list, so it doesn't correspond with an element.
-	///
-	/// - Parameter position: The position of the element to access. `position`
-	///   must be a valid index of the collection that is not equal to the
-	///   `endIndex` property.
-	public subscript(position: Index) -> Element {
-		get {
-			checkPositionIndex(position)
-			return node(at: position)!.item
-		}
-		set(newValue) {
-			checkPositionIndex(position)
-			node(at: position)?.item = newValue
-		}
-	}
-
-	/*public subscript(bounds: Range<Index>) -> SubSequence {
-		get {
-			return []
-		}
-		set(newValue) {
-
-		}
-	}*/
 
 	/// Removes and returns the first element of the list.
 	///
@@ -396,7 +759,9 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///
 	/// - Complexity: O(1)
 	/// - SeeAlso: `removeFirst()`
-	@discardableResult public func popFirst() -> Element? {
+	@discardableResult public // @testable
+	func popFirst() -> Element? {
+
 		guard let node = firstNode else { return nil }
 		return unlinkFirst(node)
 	}
@@ -408,7 +773,9 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///
 	/// - Complexity: O(1).
 	/// - SeeAlso: `removeLast()`
-	@discardableResult public func popLast() -> Element? {
+	@discardableResult public // @testable
+	func popLast() -> Element? {
+
 		guard let node = lastNode else { return nil }
 		return unlinkLast(node)
 	}
@@ -421,11 +788,14 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///
 	/// - Complexity: O(1)
 	/// - SeeAlso: `popFirst()`
-	@discardableResult public func removeFirst() -> Element {
-		guard let element = popFirst() else {
-			fatalError("No such element")
-		}
-		return element
+	@discardableResult public // @testable
+	func removeFirst() -> Element {
+
+		precondition(count != 0,
+		             "Empty collection",
+		             file: #file,
+		             line: #line)
+		return popFirst()!
 	}
 
 	/// Removes and returns the last element of the list.
@@ -436,11 +806,14 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///
 	/// - Complexity: O(1)
 	/// - SeeAlso: `popLast()`
-	@discardableResult public func removeLast() -> Element {
-		guard let element = popLast() else {
-			fatalError("No such element")
-		}
-		return element
+	@discardableResult public // @testable
+	func removeLast() -> Element {
+
+		precondition(count != 0,
+		             "Empty collection",
+		             file: #file,
+		             line: #line)
+		return popLast()!
 	}
 
 	/// Inserts a new element into the list at the specified position.
@@ -463,14 +836,19 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	/// - Parameter i: The position at which to insert the new element. `i` must
 	///   be a valid index into the list.
 	///
-	/// - Complexity: O(*n*), where *n* is the length of the collection.
-	public func insert(_ newElement: Element, at i: Index) {
-		checkPositionIndex(i)
-		if i == count {
+	/// - Complexity: O(1)
+	public // @testable
+	func insert(_ newElement: Element, at i: Index) {
+
+		precondition(validateIndex(i),
+		             "The index of the other collection or the collection has changes",
+		             file: #file,
+		             line: #line)
+		if i == endIndex {
 			linkLast(newElement)
 		}
 		else {
-			link(newElement, before: node(at: i)!)
+			link(newElement, before: i.node!)
 		}
 	}
 
@@ -493,10 +871,15 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///   index.
 	/// - Returns: The removed element.
 	///
-	/// - Complexity: O(*n*), where *n* is the length of the collection.
-	@discardableResult public func remove(at index: Index) -> Element {
-		checkPositionIndex(index)
-		return unlink(node(at: index)!)
+	/// - Complexity: O(1)
+	@discardableResult public // @testable
+	func remove(at index: Index) -> Element {
+
+		precondition(validateIndex(index),
+		             "The index of the other collection or the collection has changes",
+		             file: #file,
+		             line: #line)
+		return unlink(index.node!)
 	}
 
 	/// Removes all elements from the collection.
@@ -505,7 +888,9 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	/// collection.
 	///
 	/// - Complexity: O(*n*), where *n* is the length of the collection.
-	public func removeAll() {
+	public // @testable
+	func removeAll() {
+
 		var node = firstNode
 		for _ in 0 ..< count {
 			let next = node?.next
@@ -519,46 +904,15 @@ open class LinkedList<Element>: Swift.MutableCollection,
 		modCount += 1
 	}
 
-	@discardableResult public func remove(
-		where predicate: (Iterator.Element) throws -> Bool) rethrows -> Iterator.Element? {
+	// TODO: docs
+	@discardableResult public // @testable
+	func remove(
+		where predicate: (Element) throws -> Bool) rethrows -> Element? {
+
 		var node = firstNode
 		for _ in 0 ..< count {
 			if let node = node, try predicate(node.item) {
 				return unlink(node)
-			}
-			node = node?.next
-		}
-		return nil
-	}
-
-	/// Returns the first index in which an element of the list satisfies the
-	/// given predicate.
-	///
-	/// You can use the predicate to find an element of a type that doesn't
-	/// conform to the `Equatable` protocol or to find an element that matches
-	/// particular criteria. Here's an example that finds a student name that
-	/// begins with the letter "A":
-	///
-	///     let students: LinkedList<Int> = ["Kofi", "Abena", "Peter", "Akosua"]
-	///     if let i = students.index(where: { $0.hasPrefix("A") }) {
-	///         print("\(students[i]) starts with 'A'!")
-	///     }
-	///     // Prints "Abena starts with 'A'!"
-	///
-	/// - Parameter predicate: A closure that takes an element as its argument
-	///   and returns a Boolean value that indicates whether the passed element
-	///   represents a match.
-	/// - Returns: The index of the first element for which `predicate` returns
-	///   `true`. If no elements in the list satisfy the given predicate,
-	///   returns `nil`.
-	///
-	/// - SeeAlso: `index(of:)`
-	public func index(
-		where predicate: (Iterator.Element) throws -> Bool) rethrows -> Index? {
-		var node = firstNode
-		for i in 0 ..< count {
-			if let item = node?.item, try predicate(item) {
-				return i
 			}
 			node = node?.next
 		}
@@ -587,76 +941,20 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///   returns `nil`.
 	///
 	/// - SeeAlso: `lastIndex(of:)`
-	public func lastIndex(
+	public // @testable
+	func lastIndex(
 		where predicate: (Iterator.Element) throws -> Bool) rethrows -> Index? {
+
 		var node = lastNode
-		for i in 0 ..< count {
+		for _ in 0 ..< count {
 			if let item = node?.item, try predicate(item) {
-				return count - 1 - i
+				return index(for: node)
 			}
 			node = node?.previous
 		}
 		return nil
 	}
 
-	/// Returns a Boolean value indicating whether the list contains an element
-	/// that satisfies the given predicate.
-	///
-	/// You can use the predicate to check for an element of a type that doesn't
-	/// conform to the `Equatable` protocol, such as the `HTTPResponse`
-	/// enumeration in this example.
-	///
-	///     enum HTTPResponse {
-	///         case ok
-	///         case error(Int)
-	///     }
-	///
-	///     let lastThreeResponses: LinkedList<HTTPResponse> = [.ok, .ok, .error(404)]
-	///     let hadError = lastThreeResponses.contains { element in
-	///         if case .error = element {
-	///             return true
-	///         } else {
-	///             return false
-	///         }
-	///     }
-	///     // 'hadError' == true
-	///
-	/// Alternatively, a predicate can be satisfied by a range of `Equatable`
-	/// elements or a general condition. This example shows how you can check a
-	/// list for an expense greater than $100.
-	///
-	///     let expenses: LinkedList<Float> = [21.37, 55.21, 9.32, 10.18, 388.77]
-	///     let hasBigPurchase = expenses.contains { $0 > 100 }
-	///     // 'hasBigPurchase' == true
-	///
-	/// - Parameter predicate: A closure that takes an element of the list as its
-	///   argument and returns a Boolean value that indicates whether the passed
-	///   element represents a match.
-	/// - Returns: `true` if the list contains an element that satisfies
-	///    `predicate`; otherwise, `false`.
-	public func contains(
-		where predicate: (Iterator.Element) throws -> Bool) rethrows -> Bool {
-		return try index(where: predicate) != nil
-	}
-
-	/// Returns the first element of the list that satisfies the given
-	/// predicate or nil if no such element is found.
-	///
-	/// - Parameter predicate: A closure that takes an element of the
-	///   list as its argument and returns a Boolean value indicating
-	///   whether the element is a match.
-	/// - Returns: The first match or `nil` if there was no match.
-	public func first(
-		where predicate: (Iterator.Element) throws -> Bool) rethrows -> Iterator.Element? {
-		var node = firstNode
-		for _ in 0 ..< count {
-			if let item = node?.item, try predicate(item) {
-				return item
-			}
-			node = node?.next
-		}
-		return nil
-	}
 
 	/// Returns the last element of the list that satisfies the given
 	/// predicate or nil if no such element is found.
@@ -665,8 +963,10 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	///   list as its argument and returns a Boolean value indicating
 	///   whether the element is a match.
 	/// - Returns: The first match or `nil` if there was no match.
-	public func last(
-		where predicate: (Iterator.Element) throws -> Bool) rethrows -> Iterator.Element? {
+	public // @testable
+	func last(
+		where predicate: (Element) throws -> Bool) rethrows -> Element? {
+
 		var node = lastNode
 		for _ in 0 ..< count {
 			if let item = node?.item, try predicate(item) {
@@ -678,29 +978,56 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	}
 
 	// TODO: implementation
+	// TODO: docs
+	// TODO: tests
 	public func replaceSubrange<C>(_ subrange: Range<Index>,
 	                               with newElements: C)
-		where C: Swift.Collection, C.Iterator.Element == Iterator.Element {
+		where
+		C: Swift.Collection,
+		C.Iterator.Element == Iterator.Element {
 
-		checkPositionIndex(subrange.lowerBound)
-		checkPositionIndex(subrange.upperBound)
+		// TODO: prereq
 
-		var prev = node(at: subrange.lowerBound)?.previous
+		var firstNode = subrange.lowerBound.node
+		let lastNode = subrange.upperBound.node
 
-		var oldNext = prev?.next
+		while firstNode !== lastNode {
+			firstNode = firstNode?.next
+			if let node = firstNode?.previous {
+				unlink(node)
+			}
+		}
+
+		//z
+		//		else {
+		//			insert
+		//		}
+
 	}
 
-	internal func isPositionIndex(_ index: Index) -> Bool {
+	internal func index(for node: Node<Element>?) -> LinkedListIndex<Element> {
+
+		return LinkedListIndex(collection: self, modCount: modCount, node: node)
+	}
+
+	internal func validateIndex(_ index: Index) -> Bool {
+
+		return index.collection === self && index.isValid
+	}
+
+	internal func isPositionIndex(_ index: Int) -> Bool {
+
 		return (0 ... count).contains(index)
 	}
 
-	internal func checkPositionIndex(_ index: Index) {
+	internal func checkPositionIndex(_ index: Int) {
+
 		if !isPositionIndex(index) {
 			fatalError("Index out of bounds")
 		}
 	}
 
-	internal func node(at index: Index) -> Node<Element>? {
+	internal func node(at index: Int) -> Node<Element>? {
 
 		if index < (count >> 1) {
 			guard var node = firstNode else { return nil }
@@ -719,6 +1046,7 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	}
 
 	internal func linkLast(_ newElement: Element) {
+
 		let l = lastNode
 		let newNode = Node(previous: l, item: newElement, next: nil)
 		lastNode = newNode
@@ -731,6 +1059,7 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	}
 
 	internal func linkFirst(_ newElement: Element) {
+
 		let f = firstNode
 		let newNode = Node(previous: nil, item: newElement, next: f)
 		firstNode = newNode
@@ -743,6 +1072,7 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	}
 
 	internal func link(_ newElement: Element, before node: Node<Element>) {
+
 		let pred = node.previous
 		let newNode = Node(previous: pred, item: newElement, next: node)
 		node.previous = newNode
@@ -755,6 +1085,7 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	}
 
 	internal func unlinkFirst(_ node: Node<Element>) -> Element {
+
 		let element = node.item
 		let next = node.next
 		firstNode = next
@@ -768,6 +1099,7 @@ open class LinkedList<Element>: Swift.MutableCollection,
 	}
 
 	internal func unlinkLast(_ node: Node<Element>) -> Element {
+
 		let element = node.item
 		let prev = node.previous
 		lastNode = prev
@@ -780,7 +1112,8 @@ open class LinkedList<Element>: Swift.MutableCollection,
 		return element
 	}
 
-	internal func unlink(_ node: Node<Element>) -> Element {
+	@discardableResult internal func unlink(_ node: Node<Element>) -> Element {
+
 		let element = node.item
 		let next = node.next
 		let prev = node.previous
@@ -804,21 +1137,18 @@ open class LinkedList<Element>: Swift.MutableCollection,
 public extension LinkedList
 	where Element: Swift.Equatable {
 
-	public func index(
-		of element: LinkedList.Iterator.Element) -> LinkedList.Index? {
-		return index { $0 == element }
-	}
+	// TODO: docs
+	public // @testable
+	func remove(_ element: LinkedList.Iterator.Element) -> Bool {
 
-	public func contains(_ element: LinkedList.Iterator.Element) -> Bool {
-		return index(of: element) != nil
-	}
-
-	public func remove(_ element: LinkedList.Iterator.Element) -> Bool {
 		return remove { $0 == element } != nil
 	}
 
-	public func lastIndex(
+	// TODO: docs
+	public // @testable
+	func lastIndex(
 		of element: LinkedList.Iterator.Element) -> LinkedList.Index? {
+
 		return lastIndex { $0 == element }
 	}
 
@@ -828,6 +1158,7 @@ extension LinkedList: Swift.CustomStringConvertible,
 	Swift.CustomDebugStringConvertible {
 
 	internal func makeDescription(isDebug: Bool) -> String {
+
 		var result = "LinkedList(["
 		var first = true
 		for item in self {
@@ -855,4 +1186,20 @@ extension LinkedList: Swift.CustomStringConvertible,
 		return makeDescription(isDebug: true)
 	}
 
+}
+
+// TODO: docs
+public // @testable
+func ==<Element:Equatable>(lhs: LinkedList<Element>,
+                           rhs: LinkedList<Element>) -> Bool {
+
+	guard lhs.count == rhs.count else { return false }
+	var li = lhs.startIndex
+	var ri = rhs.startIndex
+	while li != lhs.endIndex {
+		if li.node?.item != ri.node?.item { return false }
+		lhs.formIndex(after: &li)
+		rhs.formIndex(after: &ri)
+	}
+	return true
 }
