@@ -1,0 +1,8 @@
+osx_image: xcode8.2
+language: objective-c
+xcode_project: Collection.xcodeproj
+xcode_scheme: LinkedListTests
+before_script: 
+  - xcodebuild -list
+  - xcodebuild -scheme LinkedListTests build-for-testing
+script: xctool -scheme LinkedListTests run-tests -parallelize

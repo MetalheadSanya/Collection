@@ -11,9 +11,6 @@
 		0FC512411E144DE800D04008 /* LinkedListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC512401E144DE800D04008 /* LinkedListTests.swift */; };
 		0FC512431E144DE800D04008 /* Collection.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FC512351E144DE800D04008 /* Collection.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		0FC5124D1E1451CF00D04008 /* LinkedList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC5124C1E1451CF00D04008 /* LinkedList.swift */; };
-		5E4FD0EEC9E2B16FFF1A4EBE /* MapEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4FD9DDB31D440630156137 /* MapEntry.swift */; };
-		5E4FD52510A2F5DC262825DE /* Map.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4FDC0F9AC07ACD5BFF7284 /* Map.swift */; };
-		5E4FD55AAF0DCD00544E5E8D /* AbstractMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4FD01380A031F66BDBA958 /* AbstractMap.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,9 +31,6 @@
 		0FC512401E144DE800D04008 /* LinkedListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkedListTests.swift; sourceTree = "<group>"; };
 		0FC512421E144DE800D04008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0FC5124C1E1451CF00D04008 /* LinkedList.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LinkedList.swift; sourceTree = "<group>"; };
-		5E4FD01380A031F66BDBA958 /* AbstractMap.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AbstractMap.swift; sourceTree = "<group>"; };
-		5E4FD9DDB31D440630156137 /* MapEntry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MapEntry.swift; sourceTree = "<group>"; };
-		5E4FDC0F9AC07ACD5BFF7284 /* Map.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Map.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,9 +76,6 @@
 				0FC512351E144DE800D04008 /* Collection.h */,
 				0FC512361E144DE800D04008 /* Info.plist */,
 				0FC5124C1E1451CF00D04008 /* LinkedList.swift */,
-				5E4FD01380A031F66BDBA958 /* AbstractMap.swift */,
-				5E4FDC0F9AC07ACD5BFF7284 /* Map.swift */,
-				5E4FD9DDB31D440630156137 /* MapEntry.swift */,
 			);
 			path = Collection;
 			sourceTree = "<group>";
@@ -210,9 +201,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				0FC5124D1E1451CF00D04008 /* LinkedList.swift in Sources */,
-				5E4FD55AAF0DCD00544E5E8D /* AbstractMap.swift in Sources */,
-				5E4FD52510A2F5DC262825DE /* Map.swift in Sources */,
-				5E4FD0EEC9E2B16FFF1A4EBE /* MapEntry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -419,6 +407,7 @@
 				0FC512481E144DE800D04008 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		0FC512491E144DE800D04008 /* Build configuration list for PBXNativeTarget "CollectionTests" */ = {
 			isa = XCConfigurationList;
@@ -427,6 +416,7 @@
 				0FC5124B1E144DE800D04008 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
