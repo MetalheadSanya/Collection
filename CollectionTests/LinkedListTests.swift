@@ -30,9 +30,7 @@ class LinkedListTests: XCTestCase {
 
 		list = LinkedList<Int>()
 		XCTAssertEqual(list.count, 0)
-		XCTAssertEqual(list.modCount, 0)
-		XCTAssertNil(list.firstNode)
-		XCTAssertNil(list.lastNode)
+		XCTAssertEqual(list._storage.modCount, 0)
 	}
 
 	func testCount() {
@@ -50,7 +48,7 @@ class LinkedListTests: XCTestCase {
 
 		let index = list.index(before: list.endIndex)
 		XCTAssertNil(index.node?.next)
-		XCTAssertEqual(index.node?.item, list.lastNode?.item)
+		XCTAssertEqual(index.node?.item, list._storage.last?.item)
 	}
 
 	func testFormIndexAfter() {
@@ -79,7 +77,7 @@ class LinkedListTests: XCTestCase {
 		let index = list.index(list.startIndex, offsetBy: 2)
 		list[index] = 10
 		XCTAssertEqual(list[index], 10)
-		XCTAssertNotEqual(list.modCount, 0)
+		XCTAssertNotEqual(list._storage.modCount, 0)
 	}
 
 	func testFormIndexBefore() {
@@ -156,7 +154,7 @@ class LinkedListTests: XCTestCase {
 
 	func testInitFromSequence() {
 
-		let set: Set<Int> = [1, 2, 3]
+		let set: Swift.Set<Int> = [1, 2, 3]
 		list = LinkedList<Int>(set)
 		XCTAssertTrue(list.contains(1))
 		XCTAssertTrue(list.contains(2))
@@ -258,7 +256,7 @@ class LinkedListTests: XCTestCase {
 
 	func testAppend() {
 
-		let list = LinkedList<Int>()
+		var list = LinkedList<Int>()
 
 		list.append(1)
 		list.append(2)
@@ -293,7 +291,7 @@ class LinkedListTests: XCTestCase {
 		XCTAssertEqual(list.removeFirst(), 1)
 		XCTAssertEqual(list.first, 2)
 		XCTAssertEqual(list.count, 8)
-		XCTAssertNotEqual(list.modCount, 0)
+		XCTAssertNotEqual(list._storage.modCount, 0)
 	}
 
 	func testRemoveLast() {
@@ -301,7 +299,7 @@ class LinkedListTests: XCTestCase {
 		XCTAssertEqual(list.removeLast(), 3)
 		XCTAssertEqual(list.last, 4)
 		XCTAssertEqual(list.count, 8)
-		XCTAssertNotEqual(list.modCount, 0)
+		XCTAssertNotEqual(list._storage.modCount, 0)
 	}
 
 	func testInsertAt1() {
@@ -316,7 +314,7 @@ class LinkedListTests: XCTestCase {
 		XCTAssertEqual(list[index], 5)
 		list.formIndex(after: &index)
 		XCTAssertEqual(list[index], 3)
-		XCTAssertNotEqual(list.modCount, 0)
+		XCTAssertNotEqual(list._storage.modCount, 0)
 	}
 
 	func testInsertAt2() {
@@ -328,7 +326,7 @@ class LinkedListTests: XCTestCase {
 		XCTAssertEqual(list[index], 3)
 		list.formIndex(after: &index)
 		XCTAssertEqual(list[index], 9)
-		XCTAssertNotEqual(list.modCount, 0)
+		XCTAssertNotEqual(list._storage.modCount, 0)
 	}
 
 	func testRemoveAt1() {
@@ -361,9 +359,9 @@ class LinkedListTests: XCTestCase {
 
 		list.removeAll()
 		XCTAssertEqual(list.count, 0)
-		XCTAssertNotEqual(list.modCount, 0)
-		XCTAssertNil(list.firstNode)
-		XCTAssertNil(list.lastNode)
+		XCTAssertNotEqual(list._storage.modCount, 0)
+		XCTAssertNil(list._storage.first)
+		XCTAssertNil(list._storage.last)
 	}
 
 	func testRemoveWhere() {
@@ -377,11 +375,11 @@ class LinkedListTests: XCTestCase {
 		XCTAssertEqual(list[index], 5)
 		list.formIndex(after: &index)
 		XCTAssertEqual(list[index], 6)
-		XCTAssertNotEqual(list.modCount, 0)
+		XCTAssertNotEqual(list._storage.modCount, 0)
 
-		let oldModCount = list.modCount
+		let oldModCount = list._storage.modCount
 		XCTAssertNil(list.remove { $0 > 10 })
-		XCTAssertEqual(oldModCount, list.modCount)
+		XCTAssertEqual(oldModCount, list._storage.modCount)
 	}
 
 	func testLastIndexWhere() {
@@ -453,11 +451,11 @@ class LinkedListTests: XCTestCase {
 
 		XCTAssertTrue(list.remove(3))
 		XCTAssertEqual(list.count, 8)
-		XCTAssertNotEqual(list.modCount, 0)
+		XCTAssertNotEqual(list._storage.modCount, 0)
 
-		let oldModCount = list.modCount
+		let oldModCount = list._storage.modCount
 		XCTAssertFalse(list.remove(10))
-		XCTAssertEqual(oldModCount, list.modCount)
+		XCTAssertEqual(oldModCount, list._storage.modCount)
 	}
 
 	func testLastIndexOf() {

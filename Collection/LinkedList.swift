@@ -6,16 +6,32 @@
 //  Copyright © 2016 Alexander Zalutskiy. All rights reserved.
 //
 
-class Node<Element> {
+internal class Node<Element> {
 
-	var item: Element
-	var next: Node<Element>?
-	var previous: Node<Element>?
+	internal var item: Element
+	internal var next: Node<Element>?
+	internal var previous: Node<Element>?
 
-	init(previous: Node<Element>?, item: Element, next: Node<Element>?) {
+	internal init(previous: Node<Element>?, item: Element, next: Node<Element>?) {
 		self.item = item
 		self.next = next
 		self.previous = previous
+	}
+
+}
+
+internal class NodeStorage<Element> {
+
+	internal var first: Node<Element>?
+
+	internal var last: Node<Element>?
+
+	internal // @testable
+	var modCount: UInt = 0
+
+	internal init(first: Node<Element>?, last: Node<Element>?) {
+		self.first = first
+		self.last = last
 	}
 
 }
@@ -34,7 +50,7 @@ public struct LinkedListIndex<Element> {
 	}
 
 	internal var isValid: Bool {
-		return modCount == collection.modCount
+		return modCount == collection._storage.modCount
 	}
 }
 
@@ -44,7 +60,7 @@ extension LinkedListIndex: Equatable {
 public func ==<Element>(lhs: LinkedListIndex<Element>,
                         rhs: LinkedListIndex<Element>) -> Bool {
 
-	precondition(lhs.collection === rhs.collection,
+	precondition(lhs.collection._storage === rhs.collection._storage,
 	             "Indexes of the different collections",
 	             file: #file,
 	             line: #line)
@@ -65,7 +81,7 @@ extension LinkedListIndex: Comparable {
 public func ><Element>(lhs: LinkedListIndex<Element>,
                        rhs: LinkedListIndex<Element>) -> Bool {
 
-	precondition(lhs.collection === rhs.collection,
+	precondition(lhs.collection._storage === rhs.collection._storage,
 	             "Indexes of the different collections",
 	             file: #file,
 	             line: #line)
@@ -94,7 +110,7 @@ public func ><Element>(lhs: LinkedListIndex<Element>,
 public func <<Element>(lhs: LinkedListIndex<Element>,
                        rhs: LinkedListIndex<Element>) -> Bool {
 
-	precondition(lhs.collection === rhs.collection,
+	precondition(lhs.collection._storage === rhs.collection._storage,
 	             "Indexes of the different collections",
 	             file: #file,
 	             line: #line)
@@ -120,12 +136,11 @@ public func <<Element>(lhs: LinkedListIndex<Element>,
 	return false
 }
 
-open class LinkedList<Element>:
-	Swift.Collection,
+struct LinkedList<Element>:
 	Swift.MutableCollection,
-	Swift.BidirectionalCollection,
-	Swift.ExpressibleByArrayLiteral,
-	Swift.RangeReplaceableCollection {
+	Swift.BidirectionalCollection
+	/*Swift.ExpressibleByArrayLiteral,
+	Swift.RangeReplaceableCollection*/ {
 
 	public typealias Index = LinkedListIndex<Element>
 
@@ -135,36 +150,10 @@ open class LinkedList<Element>:
 
 	/// The number of elements in the list.
 	public // @testable
-	private(set) var count: Int = 0
+	fileprivate (set) var count: Int = 0
 
-	/// Pointer to first node.
-	internal var firstNode: Node<Element>?
-
-	/// Pointer to last node.
-	internal var lastNode: Node<Element>?
-
-	internal // @testable
-	var modCount: UInt = 0
-
-	/// Creates a new, empty list
-	///
-	/// This is equivalent to initializing with an empty array literal.
-	/// For example:
-	///
-	///     var emptyList = LinkedList<Int>()
-	///     print(emptyList.isEmpty)
-	///     // Prints "true"
-	///
-	///     emptyList = []
-	///     print(emptyList.isEmpty)
-	///     // Prints "true"
-	required public // @testable
-	init() {
-	}
-
-
-	// MARK: - IndexableBase
-
+	internal var _storage: NodeStorage<Element>
+	//(first: nil, last: nil)
 
 	/// The list's "past the end" position---that is, the position one greater
 	/// than the last valid subscript argument.
@@ -189,7 +178,7 @@ open class LinkedList<Element>:
 	///
 	/// If the collection is empty, `startIndex` is equal to `endIndex`.
 	public var startIndex: Index {
-		return index(for: firstNode)
+		return index(for: _storage.first)
 	}
 
 	/// Returns the position immediately after the given index.
@@ -251,7 +240,7 @@ open class LinkedList<Element>:
 			             line: #line)
 			return position.node!.item
 		}
-		set(newValue) {
+		mutating set(newValue) {
 			precondition(validateIndex(position),
 			             "The index of the other collection or the collection has changes",
 			             file: #file,
@@ -260,6 +249,8 @@ open class LinkedList<Element>:
 			             "The index equal to endIndex",
 			             file: #file,
 			             line: #line)
+
+			copyStorageIfNeeded()
 			position.node!.item = newValue
 		}
 	}
@@ -278,7 +269,7 @@ open class LinkedList<Element>:
 			             file: #file,
 			             line: #line)
 
-			let list = LinkedList<Element>()
+			var list = LinkedList<Element>()
 			var lowerBounds = bounds.lowerBound
 			while lowerBounds.node !== bounds.upperBound.node {
 				if let node = lowerBounds.node {
@@ -291,7 +282,7 @@ open class LinkedList<Element>:
 		// TODO: Implementation
 		// TODO: tests
 		set(newValue) {
-
+			copyStorageIfNeeded()
 		}
 	}
 
@@ -309,7 +300,7 @@ open class LinkedList<Element>:
 		             "The index of the other collection or the collection has changes",
 		             file: #file,
 		             line: #line)
-		guard i.node != nil else { return index(for: lastNode) }
+		guard i.node != nil else { return index(for: _storage.last) }
 		precondition(i != startIndex,
 		             "The index equal to startIndex",
 		             file: #file,
@@ -523,7 +514,71 @@ open class LinkedList<Element>:
 		return i != limit
 	}
 
+	internal
+	func validateIndex(_ index: Index) -> Bool {
+
+		return index.collection._storage === _storage && index.isValid
+	}
+
+	internal
+	func index(for node: Node<Element>?) -> LinkedListIndex<Element> {
+
+		return LinkedListIndex(collection: self, modCount: _storage.modCount, node: node)
+	}
+
+	internal mutating func copyStorageIfNeeded() {
+		if !isKnownUniquelyReferenced(&_storage) {
+			var node = _storage.first
+			_storage = NodeStorage(first: nil, last: nil)
+			while node != nil {
+				append(node!.item)
+				node = node!.next
+			}
+		}
+	}
+}
+
+extension LinkedList: ExpressibleByArrayLiteral {
+
+	/// Creates an list from the given array literal.
+	///
+	/// Do not call this initializer directly. It is used by the compiler when
+	/// you use an array literal. Instead, create a new list by using an array
+	/// literal as its value. To do this, enclose a comma-separated list of
+	/// values in square brackets.
+	///
+	/// Here, an list of strings is created from an array literal holding only
+	/// strings:
+	///
+	///     let ingredients: LinkedList<String> =
+	///           ["cocoa beans", "sugar", "cocoa butter", "salt"]
+	///
+	/// - Parameter elements: A variadic list of elements of the new list.
+	public // @testable
+	init(arrayLiteral elements: Element...) {
+		self.init(elements)
+	}
+
+}
+
+extension LinkedList: RangeReplaceableCollection {
 	// MARK: - Initializers
+	/// Creates a new, empty list
+	///
+	/// This is equivalent to initializing with an empty array literal.
+	/// For example:
+	///
+	///     var emptyList = LinkedList<Int>()
+	///     print(emptyList.isEmpty)
+	///     // Prints "true"
+	///
+	///     emptyList = []
+	///     print(emptyList.isEmpty)
+	///     // Prints "true"
+	public // @testable
+	init() {
+		_storage = NodeStorage(first: nil, last: nil)
+	}
 
 	/// Creates an list containing the elements of a sequence.
 	///
@@ -559,31 +614,12 @@ open class LinkedList<Element>:
 	///     // Prints "LinkedList(["Gold", "Cerise", "Magenta", "Vermillion"])"
 	///
 	/// - Parameter elements: The sequence of elements to turn into an list.
-	required public // @testable
-	convenience init<S:Sequence>(_ elements: S)
+	public // @testable
+	init<S:Sequence>(_ elements: S)
 		where
 		S.Iterator.Element == Element {
 		self.init()
 		append(contentsOf: elements)
-	}
-
-	/// Creates an list from the given array literal.
-	///
-	/// Do not call this initializer directly. It is used by the compiler when
-	/// you use an array literal. Instead, create a new list by using an array
-	/// literal as its value. To do this, enclose a comma-separated list of
-	/// values in square brackets.
-	///
-	/// Here, an list of strings is created from an array literal holding only
-	/// strings:
-	///
-	///     let ingredients: LinkedList<String> =
-	///           ["cocoa beans", "sugar", "cocoa butter", "salt"]
-	///
-	/// - Parameter elements: A variadic list of elements of the new list.
-	required public // @testable
-	convenience init(arrayLiteral elements: Element...) {
-		self.init(elements)
 	}
 
 	/// Creates a new list containing the specified number of a single, repeated
@@ -600,9 +636,9 @@ open class LinkedList<Element>:
 	///   - repeatedValue: The element to repeat.
 	///   - count: The number of times to repeat the value passed in the
 	///     `repeating` parameter. `count` must be zero or greater.
-	required public // @testable
-	convenience init(repeating repeatedValue: Element,
-	                 count: Int) {
+	public // @testable
+	init(repeating repeatedValue: Element,
+	     count: Int) {
 		self.init((0 ..< count).map { _ in repeatedValue })
 	}
 
@@ -621,7 +657,7 @@ open class LinkedList<Element>:
 	/// - Complexity: O(*n*), where *n* is the length of the `newElements`
 	///   sequence.
 	public // @testable
-	func append<S:Sequence>(contentsOf newElements: S)
+	mutating func append<S:Sequence>(contentsOf newElements: S)
 		where
 		S.Iterator.Element == Element {
 
@@ -654,8 +690,8 @@ open class LinkedList<Element>:
 	///   and `newElements`. If `i` is equal to the collection's `endIndex`
 	///   property, the complexity is O(*n*), where *n* is the length of
 	///   `newElements`.
-	public func insert<S:Sequence>(contentsOf newElements: S,
-	                               at i: Index)
+	public mutating func insert<S:Sequence>(contentsOf newElements: S,
+	                                        at i: Index)
 		where
 		S.Iterator.Element == Element {
 
@@ -663,13 +699,14 @@ open class LinkedList<Element>:
 		             "The index of the other collection or the collection has changes",
 		             file: #file,
 		             line: #line)
+		copyStorageIfNeeded()
 
 		let succ: Node<Element>?
 		var pred: Node<Element>?
 
 		if i == endIndex {
 			succ = nil
-			pred = lastNode
+			pred = _storage.last
 		}
 		else {
 			succ = i.node
@@ -683,7 +720,7 @@ open class LinkedList<Element>:
 
 			let newNode = Node(previous: pred, item: obj, next: nil)
 			if pred == nil {
-				firstNode = newNode
+				_storage.first = newNode
 			}
 			pred?.next = newNode
 			pred = newNode
@@ -694,7 +731,7 @@ open class LinkedList<Element>:
 		}
 
 		if succ == nil {
-			lastNode = pred
+			_storage.last = pred
 		}
 		else {
 			pred?.next = succ
@@ -702,7 +739,7 @@ open class LinkedList<Element>:
 		}
 
 		count += fromSize
-		modCount += 1
+		_storage.modCount += 1
 	}
 
 	/// Adds an element to the end of the list.
@@ -719,37 +756,9 @@ open class LinkedList<Element>:
 	///
 	/// - Complexity: O(1).
 	public // @testable
-	func append(_ newElement: Element) {
+	mutating func append(_ newElement: Element) {
 
 		linkLast(newElement)
-	}
-
-	/// The first element of the list.
-	///
-	/// If the list is empty, the value of this property is `nil`.
-	///
-	///     let numbers: LinkedList<Int> = [10, 20, 30, 40, 50]
-	///     if let firstNumber = numbers.first {
-	///         print(firstNumber)
-	///     }
-	///     // Prints "10"
-	public // @testable
-	var first: Element? {
-		return firstNode?.item
-	}
-
-	/// The last element of the list.
-	///
-	/// If the list is empty, the value of this property is `nil`.
-	///
-	///     let numbers: LinkedList<Int> = [10, 20, 30, 40, 50]
-	///     if let lastNumber = numbers.last {
-	///         print(lastNumber)
-	///     }
-	///     // Prints "50"
-	public // @testable
-	var last: Element? {
-		return lastNode?.item
 	}
 
 	/// Removes and returns the first element of the list.
@@ -760,9 +769,9 @@ open class LinkedList<Element>:
 	/// - Complexity: O(1)
 	/// - SeeAlso: `removeFirst()`
 	@discardableResult public // @testable
-	func popFirst() -> Element? {
+	mutating func popFirst() -> Element? {
 
-		guard let node = firstNode else { return nil }
+		guard let node = _storage.first else { return nil }
 		return unlinkFirst(node)
 	}
 
@@ -774,9 +783,9 @@ open class LinkedList<Element>:
 	/// - Complexity: O(1).
 	/// - SeeAlso: `removeLast()`
 	@discardableResult public // @testable
-	func popLast() -> Element? {
+	mutating func popLast() -> Element? {
 
-		guard let node = lastNode else { return nil }
+		guard let node = _storage.last else { return nil }
 		return unlinkLast(node)
 	}
 
@@ -789,7 +798,7 @@ open class LinkedList<Element>:
 	/// - Complexity: O(1)
 	/// - SeeAlso: `popFirst()`
 	@discardableResult public // @testable
-	func removeFirst() -> Element {
+	mutating func removeFirst() -> Element {
 
 		precondition(count != 0,
 		             "Empty collection",
@@ -807,7 +816,7 @@ open class LinkedList<Element>:
 	/// - Complexity: O(1)
 	/// - SeeAlso: `popLast()`
 	@discardableResult public // @testable
-	func removeLast() -> Element {
+	mutating func removeLast() -> Element {
 
 		precondition(count != 0,
 		             "Empty collection",
@@ -838,7 +847,7 @@ open class LinkedList<Element>:
 	///
 	/// - Complexity: O(1)
 	public // @testable
-	func insert(_ newElement: Element, at i: Index) {
+	mutating func insert(_ newElement: Element, at i: Index) {
 
 		precondition(validateIndex(i),
 		             "The index of the other collection or the collection has changes",
@@ -873,7 +882,7 @@ open class LinkedList<Element>:
 	///
 	/// - Complexity: O(1)
 	@discardableResult public // @testable
-	func remove(at index: Index) -> Element {
+	mutating func remove(at index: Index) -> Element {
 
 		precondition(validateIndex(index),
 		             "The index of the other collection or the collection has changes",
@@ -889,27 +898,29 @@ open class LinkedList<Element>:
 	///
 	/// - Complexity: O(*n*), where *n* is the length of the collection.
 	public // @testable
-	func removeAll() {
+	mutating func removeAll() {
 
-		var node = firstNode
+		copyStorageIfNeeded()
+
+		var node = _storage.first
 		for _ in 0 ..< count {
 			let next = node?.next
 			node?.next = nil
 			node?.previous = nil
 			node = next
 		}
-		firstNode = nil
-		lastNode = nil
+		_storage.first = nil
+		_storage.last = nil
 		count = 0
-		modCount += 1
+		_storage.modCount += 1
 	}
 
 	// TODO: docs
 	@discardableResult public // @testable
-	func remove(
+	mutating func remove(
 		where predicate: (Element) throws -> Bool) rethrows -> Element? {
 
-		var node = firstNode
+		var node = _storage.first
 		for _ in 0 ..< count {
 			if let node = node, try predicate(node.item) {
 				return unlink(node)
@@ -943,9 +954,9 @@ open class LinkedList<Element>:
 	/// - SeeAlso: `lastIndex(of:)`
 	public // @testable
 	func lastIndex(
-		where predicate: (Iterator.Element) throws -> Bool) rethrows -> Index? {
+		where predicate: (Element) throws -> Bool) rethrows -> Index? {
 
-		var node = lastNode
+		var node = _storage.last
 		for _ in 0 ..< count {
 			if let item = node?.item, try predicate(item) {
 				return index(for: node)
@@ -967,7 +978,7 @@ open class LinkedList<Element>:
 	func last(
 		where predicate: (Element) throws -> Bool) rethrows -> Element? {
 
-		var node = lastNode
+		var node = _storage.last
 		for _ in 0 ..< count {
 			if let item = node?.item, try predicate(item) {
 				return item
@@ -980,11 +991,11 @@ open class LinkedList<Element>:
 	// TODO: implementation
 	// TODO: docs
 	// TODO: tests
-	public func replaceSubrange<C>(_ subrange: Range<Index>,
-	                               with newElements: C)
+	public mutating func replaceSubrange<C>(_ subrange: Range<Index>,
+	                                        with newElements: C)
 		where
 		C: Swift.Collection,
-		C.Iterator.Element == Iterator.Element {
+		C.Iterator.Element == Element {
 
 		// TODO: prereq
 
@@ -1005,39 +1016,83 @@ open class LinkedList<Element>:
 
 	}
 
-	internal func index(for node: Node<Element>?) -> LinkedListIndex<Element> {
+	internal
+	mutating func link(_ newElement: Element,
+	                   before node: Node<Element>) {
 
-		return LinkedListIndex(collection: self, modCount: modCount, node: node)
+		copyStorageIfNeeded()
+
+		let pred = node.previous
+		let newNode = Node(previous: pred, item: newElement, next: node)
+		node.previous = newNode
+		if pred == nil {
+			_storage.first = newNode
+		}
+		pred?.next = newNode
+		count += 1
+		_storage.modCount += 1
 	}
 
-	internal func validateIndex(_ index: Index) -> Bool {
+	internal
+	mutating func unlinkFirst(_ node: Node<Element>) -> Element {
 
-		return index.collection === self && index.isValid
+		copyStorageIfNeeded()
+
+		let element = node.item
+		let next = node.next
+		_storage.first = next
+		if next == nil {
+			_storage.last = nil
+		}
+		next?.previous = nil
+		count -= 1
+		_storage.modCount += 1
+		return element
 	}
 
-	internal func isPositionIndex(_ index: Int) -> Bool {
+	internal
+	mutating func unlinkLast(_ node: Node<Element>) -> Element {
+
+		copyStorageIfNeeded()
+
+		let element = node.item
+		let prev = node.previous
+		_storage.last = prev
+		if prev == nil {
+			_storage.first = nil
+		}
+		prev?.next = nil
+		count -= 1
+		_storage.modCount += 1
+		return element
+	}
+
+	internal
+	func isPositionIndex(_ index: Int) -> Bool {
 
 		return (0 ... count).contains(index)
 	}
 
-	internal func checkPositionIndex(_ index: Int) {
+	internal
+	func checkPositionIndex(_ index: Int) {
 
 		if !isPositionIndex(index) {
 			fatalError("Index out of bounds")
 		}
 	}
 
-	internal func node(at index: Int) -> Node<Element>? {
+	internal
+	func node(at index: Int) -> Node<Element>? {
 
 		if index < (count >> 1) {
-			guard var node = firstNode else { return nil }
+			guard var node = _storage.first else { return nil }
 			for _ in 0 ..< index {
 				node = node.next!
 			}
 			return node
 		}
 		else {
-			guard var node = lastNode else { return nil }
+			guard var node = _storage.last else { return nil }
 			for _ in 0 ..< (count - index - 1) {
 				node = node.previous!
 			}
@@ -1045,107 +1100,77 @@ open class LinkedList<Element>:
 		}
 	}
 
-	internal func linkLast(_ newElement: Element) {
+	internal
+	mutating func linkLast(_ newElement: Element) {
 
-		let l = lastNode
+		copyStorageIfNeeded()
+
+		let l = _storage.last
 		let newNode = Node(previous: l, item: newElement, next: nil)
-		lastNode = newNode
+		_storage.last = newNode
 		if l == nil {
-			firstNode = newNode
+			_storage.first = newNode
 		}
 		l?.next = newNode
 		count += 1
-		modCount += 1
+		_storage.modCount += 1
 	}
 
-	internal func linkFirst(_ newElement: Element) {
+	internal
+	mutating func linkFirst(_ newElement: Element) {
 
-		let f = firstNode
+		copyStorageIfNeeded()
+
+		let f = _storage.first
 		let newNode = Node(previous: nil, item: newElement, next: f)
-		firstNode = newNode
+		_storage.first = newNode
 		if f == nil {
-			lastNode = newNode
+			_storage.last = newNode
 		}
 		f?.previous = newNode
 		count += 1
-		modCount += 1
+		_storage.modCount += 1
 	}
 
-	internal func link(_ newElement: Element, before node: Node<Element>) {
+	@discardableResult internal
+	mutating func unlink(
+		_ node: Node<Element>) -> Element {
 
-		let pred = node.previous
-		let newNode = Node(previous: pred, item: newElement, next: node)
-		node.previous = newNode
-		if pred == nil {
-			firstNode = newNode
-		}
-		pred?.next = newNode
-		count += 1
-		modCount += 1
-	}
-
-	internal func unlinkFirst(_ node: Node<Element>) -> Element {
-
-		let element = node.item
-		let next = node.next
-		firstNode = next
-		if next == nil {
-			lastNode = nil
-		}
-		next?.previous = nil
-		count -= 1
-		modCount += 1
-		return element
-	}
-
-	internal func unlinkLast(_ node: Node<Element>) -> Element {
-
-		let element = node.item
-		let prev = node.previous
-		lastNode = prev
-		if prev == nil {
-			firstNode = nil
-		}
-		prev?.next = nil
-		count -= 1
-		modCount += 1
-		return element
-	}
-
-	@discardableResult internal func unlink(_ node: Node<Element>) -> Element {
+		copyStorageIfNeeded()
 
 		let element = node.item
 		let next = node.next
 		let prev = node.previous
 
 		if prev == nil {
-			firstNode = next
+			_storage.first = next
 		}
 		prev?.next = next
 		if next == nil {
-			lastNode = prev
+			_storage.last = prev
 		}
 		next?.previous = prev
 
 		count -= 1
-		modCount += 1
+		_storage.modCount += 1
 		return element
 	}
 
 }
 
-public extension LinkedList
+
+extension LinkedList
 	where Element: Swift.Equatable {
 
 	// TODO: docs
-	public // @testable
-	func remove(_ element: LinkedList.Iterator.Element) -> Bool {
+	// @testable
+	mutating func remove(_ element: LinkedList.Iterator.Element) -> Bool {
 
 		return remove { $0 == element } != nil
 	}
 
 	// TODO: docs
-	public // @testable
+	// @testable
 	func lastIndex(
 		of element: LinkedList.Iterator.Element) -> LinkedList.Index? {
 
@@ -1189,9 +1214,11 @@ extension LinkedList: Swift.CustomStringConvertible,
 }
 
 // TODO: docs
-public // @testable
+// @testable
 func ==<Element:Equatable>(lhs: LinkedList<Element>,
                            rhs: LinkedList<Element>) -> Bool {
+
+	if lhs._storage === rhs._storage { return true }
 
 	guard lhs.count == rhs.count else { return false }
 	var li = lhs.startIndex
