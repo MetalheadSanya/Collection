@@ -250,8 +250,9 @@ struct LinkedList<Element>:
 			             file: #file,
 			             line: #line)
 
-			copyStorageIfNeeded()
-			position.node!.item = newValue
+			var i = position
+			copyStorageIfNeeded(withSaveIndex: &i)
+			i.node!.item = newValue
 		}
 	}
 
@@ -527,11 +528,47 @@ struct LinkedList<Element>:
 	}
 
 	internal mutating func copyStorageIfNeeded() {
+
 		if !isKnownUniquelyReferenced(&_storage) {
+
+			count = 0
+
 			var node = _storage.first
 			_storage = NodeStorage(first: nil, last: nil)
 			while node != nil {
 				append(node!.item)
+				node = node!.next
+			}
+		}
+	}
+
+	internal mutating func copyStorageIfNeeded(withSaveIndex i: inout LinkedListIndex<Element>) {
+
+		if var node = i.node {
+			copyStorageIfNeeded(withSaveNode: &node)
+			i = index(for: node)
+		}
+		else {
+			copyStorageIfNeeded()
+			i = endIndex
+		}
+	}
+
+	internal mutating func copyStorageIfNeeded(withSaveNode i: inout Node<Element>) {
+
+		if !isKnownUniquelyReferenced(&_storage) {
+
+			count = 0
+
+			var node = _storage.first
+			_storage = NodeStorage(first: nil, last: nil)
+			while node != nil {
+				append(node!.item)
+
+				if i === node! {
+					i = _storage.last!
+				}
+
 				node = node!.next
 			}
 		}
@@ -690,8 +727,9 @@ extension LinkedList: RangeReplaceableCollection {
 	///   and `newElements`. If `i` is equal to the collection's `endIndex`
 	///   property, the complexity is O(*n*), where *n* is the length of
 	///   `newElements`.
-	public mutating func insert<S:Sequence>(contentsOf newElements: S,
-	                                        at i: Index)
+	public // @testable
+	mutating func insert<S:Sequence>(contentsOf newElements: S,
+	                                 at i: Index)
 		where
 		S.Iterator.Element == Element {
 
@@ -699,7 +737,9 @@ extension LinkedList: RangeReplaceableCollection {
 		             "The index of the other collection or the collection has changes",
 		             file: #file,
 		             line: #line)
-		copyStorageIfNeeded()
+		var i = i
+
+		copyStorageIfNeeded(withSaveIndex: &i)
 
 		let succ: Node<Element>?
 		var pred: Node<Element>?
@@ -1020,7 +1060,8 @@ extension LinkedList: RangeReplaceableCollection {
 	mutating func link(_ newElement: Element,
 	                   before node: Node<Element>) {
 
-		copyStorageIfNeeded()
+		var node = node
+		copyStorageIfNeeded(withSaveNode: &node)
 
 		let pred = node.previous
 		let newNode = Node(previous: pred, item: newElement, next: node)
@@ -1157,7 +1198,6 @@ extension LinkedList: RangeReplaceableCollection {
 	}
 
 }
-
 
 extension LinkedList
 	where Element: Swift.Equatable {

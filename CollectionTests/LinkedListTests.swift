@@ -74,8 +74,9 @@ class LinkedListTests: XCTestCase {
 
 	func testSubscriptSet() {
 
-		let index = list.index(list.startIndex, offsetBy: 2)
+		var index = list.index(list.startIndex, offsetBy: 2)
 		list[index] = 10
+		index = list.index(list.startIndex, offsetBy: 2)
 		XCTAssertEqual(list[index], 10)
 		XCTAssertNotEqual(list._storage.modCount, 0)
 	}
